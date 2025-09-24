@@ -2,22 +2,42 @@
 
 {% block head_css %}
 <style>
-  .product-item {
+  .card-section {
     border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 15px;
-    margin-bottom: 1rem;
-    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 2rem;
+    background-color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
   }
+
+  .card-section legend {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: black; /* changed from #333 */
+    margin-bottom: 1rem;
+    border-bottom: 2px solid black; /* changed from #007bff */
+    padding-bottom: 5px;
+  }
+
+  .product-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 1.5rem;
+    background-color: #fdfdfd;
+  }
+
   .product-header {
-    background-color: #007bff;
+    background-color: black; /* changed from #007bff */
     color: white;
     padding: 8px 12px;
     margin: -15px -15px 15px -15px;
-    border-radius: 4px 4px 0 0;
+    border-radius: 6px 6px 0 0;
     font-weight: bold;
     position: relative;
   }
+
   .remove-product {
     position: absolute;
     right: 12px;
@@ -28,23 +48,33 @@
     font-size: 1.25rem;
     cursor: pointer;
   }
+
   .remove-product:hover {
     color: #ffcccc;
   }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 2rem;
+  }
 </style>
+
+
 {% endblock %}
 
 {% block body %}
-  <div class="container mt-4">
-    <h1>Edit Order {{ order_id }}</h1>
+<div class="container mt-4">
+  <h1 class="mb-4">Edit Order #{{ order_id }}</h1>
 
-    <form method="POST" action="{{ url_for('orderview.edit', order_id=order_id) }}" class="mt-4">
+  <form method="POST" action="{{ url_for('orderview.edit', order_id=order_id) }}">
 
-      {# Products Section #}
-      <fieldset class="mb-4">
-        <legend class="h4">Order Products</legend>
+  {# Products Section #}
+    <fieldset class="card-section">
+      <legend>Order Products</legend>
+      <div id="products-container">
 
-        <div id="products-container">
           {% set summary = order.get('order_summary', '{}') | fromjson %}
           {% if summary.products is defined and summary.products %}
             {% for product in summary.products %}
@@ -103,7 +133,7 @@
                     />
                   </div>
                   <div class="form-group col-md-4">
-                    <label for="unit_price_{{ loop.index0 }}">Unit Price ($)</label>
+                    <label for="unit_price_{{ loop.index0 }}">Unit Price (₱)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -116,7 +146,7 @@
                     />
                   </div>
                   <div class="form-group col-md-4">
-                    <label for="total_price_{{ loop.index0 }}">Total Price ($)</label>
+                    <label for="total_price_{{ loop.index0 }}">Total Price (₱)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -139,8 +169,8 @@
       </fieldset>
 
       {# Billing Details #}
-      <fieldset class="mb-4">
-        <legend class="h4">Billing Details</legend>
+    <fieldset class="card-section">
+        <legend>Billing Details</legend>
         <div class="form-row">
           <div class="form-group col-md-6">
             <label for="full_name">Full Name (Billing)</label>
@@ -167,8 +197,8 @@
 
       {# Shipping Details #}
       {% set shipping = order.get('shipping_info', '{}') | fromjson %}
-      <fieldset class="mb-4">
-        <legend class="h4">Shipping Details</legend>
+         <fieldset class="card-section">
+      <legend>Shipping Details</legend>
         <div class="form-row">
           <div class="form-group col-md-6">
             <label for="shipping_full_name">Full Name</label>
@@ -256,11 +286,11 @@
       </fieldset>
 
       {# Order Summary & Status #}
-      <fieldset class="mb-4">
-        <legend class="h4">Order Summary</legend>
+  <fieldset class="card-section">
+      <legend>Order Summary</legend>
         <div class="form-row">
           <div class="form-group col-md-6">
-            <label for="order-total">Total ($)</label>
+            <label for="order-total">Total (₱)</label>
             <input
               type="number"
               step="0.01"
@@ -297,7 +327,7 @@
       </fieldset>
 
       {# Form Actions #}
-      <div class="form-group">
+    <div class="form-actions">
         <button type="submit" class="btn btn-success">Save</button>
         <a href="{{ orders_url }}" class="btn btn-secondary ml-2">Cancel</a>
       </div>
@@ -314,7 +344,7 @@
       productDiv.className = 'product-item';
       productDiv.innerHTML = `
         <div class="product-header">
-          Product ${productCount + 1}
+          Product ₱{productCount + 1}
           <button type="button" class="remove-product" onclick="removeProduct(this)">&times;</button>
         </div>
         <div class="row">
@@ -348,13 +378,13 @@
           </div>
           <div class="col-md-4">
             <div class="form-group">
-              <label>Unit Price ($)</label>
+              <label>Unit Price (₱)</label>
               <input type="number" step="0.01" class="form-control price-input" name="unit_price_${productCount}" value="0.00" min="0" onchange="calculateProductTotal(this)" />
             </div>
           </div>
           <div class="col-md-4">
             <div class="form-group">
-              <label>Total Price ($)</label>
+              <label>Total Price (₱)</label>
               <input type="number" step="0.01" class="form-control total-input" readonly value="0.00" />
             </div>
           </div>

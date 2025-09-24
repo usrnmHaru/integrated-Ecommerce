@@ -11,5 +11,7 @@ urlpatterns = [
     path('not_shipped_dash', views.not_shipped_dash, name="not_shipped_dash"),
     path('orders/<int:pk>', views.orders, name='orders'),
     path('paypal', include("paypal.standard.ipn.urls")),
+    path('api/orders/<int:pk>/status/', views.update_order_status, name='update_order_status'),
+    path('api/orders/<int:pk>/delete/', views.delete_order, name='delete_order'),
 
 ]

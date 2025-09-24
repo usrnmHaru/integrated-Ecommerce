@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, redirect, url_for, render_template
 from flask_admin import Admin, BaseView, AdminIndexView, expose
 from flask_sqlalchemy import SQLAlchemy
 import json
+import requests
 
 app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = 'your-secret-key'
@@ -134,15 +135,26 @@ class OrderView(BaseView):
             except ValueError:
                 total = calculated_total
 
+            new_status = request.form.get('status', order.get('status', 'pending'))
             orders_db[order_id] = {
                 'order_summary': json.dumps(order_summary),
                 'shipping_info': json.dumps(shipping_info),
                 'total': total,
-                'status': request.form.get('status', order.get('status', 'pending')),
+                'status': new_status,
                 'email': new_email,
                 'full_name': new_full_name,
                 'shipping_address': request.form.get('shipping_address', order.get('shipping_address', ''))
             }
+
+            # Update Django via API
+            django_status = 'shipped' if new_status.lower() in ['shipped', 'delivered'] else 'pending'
+            try:
+                response = requests.put(f'http://127.0.0.1:8000/api/orders/{order_id}/status/', json={'status': django_status})
+                if response.status_code != 200:
+                    print(f"Failed to update Django: {response.status_code} - {response.text}")
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to update Django: {e}")
+
             return redirect(orders_url)
         
         return self.render('admin/edit_order.html', order=order, order_id=order_id, home_url=home_url, orders_url=orders_url)
@@ -150,7 +162,19 @@ class OrderView(BaseView):
     @expose('/delete/<int:order_id>')
     def delete(self, order_id):
         if order_id in orders_db:
+            # Delete from Flask's in-memory database
             del orders_db[order_id]
+            # Delete from Django via API
+            try:
+                response = requests.delete(f'http://127.0.0.1:8000/api/orders/{order_id}/delete/')
+                if response.status_code != 200:
+                    print(f"Failed to delete order in Django: {response.status_code} - {response.text}")
+                    return jsonify({'status': 'error', 'message': f'Failed to delete order in Django: {response.text}'}), response.status_code
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to delete order in Django: {e}")
+                return jsonify({'status': 'error', 'message': f'Failed to delete order in Django: {str(e)}'}), 500
+        else:
+            print(f"Order {order_id} not found in Flask orders_db")
         return redirect(url_for('orderview.index'))
 
 admin.add_view(OrderView(name='Orders', endpoint='orderview'))
@@ -250,8 +274,7 @@ def delete_order(order_id):
 
 @app.route('/')
 def index():
-    return 'http://127.0.0.1:5000/admin'
-
+    return render_template('landing.html')
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
