@@ -1,0 +1,419 @@
+{% extends 'admin/base.html' %}
+
+{% block head_css %}
+<style>
+  .product-item {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 1rem;
+    background-color: #f9f9f9;
+  }
+  .product-header {
+    background-color: #007bff;
+    color: white;
+    padding: 8px 12px;
+    margin: -15px -15px 15px -15px;
+    border-radius: 4px 4px 0 0;
+    font-weight: bold;
+    position: relative;
+  }
+  .remove-product {
+    position: absolute;
+    right: 12px;
+    top: 8px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.25rem;
+    cursor: pointer;
+  }
+  .remove-product:hover {
+    color: #ffcccc;
+  }
+</style>
+{% endblock %}
+
+{% block body %}
+  <div class="container mt-4">
+    <h1>Edit Order {{ order_id }}</h1>
+
+    <form method="POST" action="{{ url_for('orderview.edit', order_id=order_id) }}" class="mt-4">
+
+      {# Products Section #}
+      <fieldset class="mb-4">
+        <legend class="h4">Order Products</legend>
+
+        <div id="products-container">
+          {% set summary = order.get('order_summary', '{}') | fromjson %}
+          {% if summary.products is defined and summary.products %}
+            {% for product in summary.products %}
+              <div class="product-item">
+                <div class="product-header">
+                  Product {{ loop.index }}
+                  <button type="button" class="remove-product" onclick="removeProduct(this)">&times;</button>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group col-md-4">
+                    <label for="product_id_{{ loop.index0 }}">Product ID</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="product_id_{{ loop.index0 }}"
+                      name="product_id_{{ loop.index0 }}"
+                      value="{{ product.product_id|default(product.id|default('')) }}"
+                    />
+                  </div>
+                  <div class="form-group col-md-8">
+                    <label for="product_name_{{ loop.index0 }}">Product Name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="product_name_{{ loop.index0 }}"
+                      name="product_name_{{ loop.index0 }}"
+                      value="{{ product.product_name|default(product.name|default('')) }}"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="description_{{ loop.index0 }}">Description</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="description_{{ loop.index0 }}"
+                    name="description_{{ loop.index0 }}"
+                    value="{{ product.description|default('') }}"
+                  />
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group col-md-4">
+                    <label for="quantity_{{ loop.index0 }}">Quantity</label>
+                    <input
+                      type="number"
+                      class="form-control quantity-input"
+                      id="quantity_{{ loop.index0 }}"
+                      name="quantity_{{ loop.index0 }}"
+                      value="{{ product.quantity|default(1) }}"
+                      min="1"
+                      onchange="calculateProductTotal(this)"
+                    />
+                  </div>
+                  <div class="form-group col-md-4">
+                    <label for="unit_price_{{ loop.index0 }}">Unit Price ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      class="form-control price-input"
+                      id="unit_price_{{ loop.index0 }}"
+                      name="unit_price_{{ loop.index0 }}"
+                      value="{{ product.unit_price|default(product.price|default(0.00)) }}"
+                      min="0"
+                      onchange="calculateProductTotal(this)"
+                    />
+                  </div>
+                  <div class="form-group col-md-4">
+                    <label for="total_price_{{ loop.index0 }}">Total Price ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      class="form-control total-input"
+                      id="total_price_{{ loop.index0 }}"
+                      readonly
+                      value="{{ product.total_price|default((product.quantity|default(0)) * (product.unit_price|default(product.price|default(0)|float))) }}"
+                    />
+                  </div>
+                </div>
+
+              </div>
+            {% endfor %}
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <button type="button" class="btn btn-success" onclick="addProduct()">Add Product</button>
+        </div>
+      </fieldset>
+
+      {# Billing Details #}
+      <fieldset class="mb-4">
+        <legend class="h4">Billing Details</legend>
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label for="full_name">Full Name (Billing)</label>
+            <input
+              type="text"
+              class="form-control"
+              id="full_name"
+              name="full_name"
+              value="{{ order.get('full_name', '') }}"
+            />
+          </div>
+          <div class="form-group col-md-6">
+            <label for="email">Email (Billing)</label>
+            <input
+              type="email"
+              class="form-control"
+              id="email"
+              name="email"
+              value="{{ order.get('email', '') }}"
+            />
+          </div>
+        </div>
+      </fieldset>
+
+      {# Shipping Details #}
+      {% set shipping = order.get('shipping_info', '{}') | fromjson %}
+      <fieldset class="mb-4">
+        <legend class="h4">Shipping Details</legend>
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label for="shipping_full_name">Full Name</label>
+            <input
+              type="text"
+              class="form-control"
+              id="shipping_full_name"
+              name="shipping_full_name"
+              value="{{ shipping.get('shipping_full_name', '') }}"
+            />
+          </div>
+          <div class="form-group col-md-6">
+            <label for="shipping_email">Email</label>
+            <input
+              type="email"
+              class="form-control"
+              id="shipping_email"
+              name="shipping_email"
+              value="{{ shipping.get('shipping_email', '') }}"
+            />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="shipping_address1">Address 1</label>
+          <input
+            type="text"
+            class="form-control"
+            id="shipping_address1"
+            name="shipping_address1"
+            value="{{ shipping.get('shipping_address1', '') }}"
+          />
+        </div>
+        <div class="form-group">
+          <label for="shipping_address2">Address 2</label>
+          <input
+            type="text"
+            class="form-control"
+            id="shipping_address2"
+            name="shipping_address2"
+            value="{{ shipping.get('shipping_address2', '') }}"
+          />
+        </div>
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label for="shipping_city">City</label>
+            <input
+              type="text"
+              class="form-control"
+              id="shipping_city"
+              name="shipping_city"
+              value="{{ shipping.get('shipping_city', '') }}"
+            />
+          </div>
+          <div class="form-group col-md-3">
+            <label for="shipping_state">State</label>
+            <input
+              type="text"
+              class="form-control"
+              id="shipping_state"
+              name="shipping_state"
+              value="{{ shipping.get('shipping_state', '') }}"
+            />
+          </div>
+          <div class="form-group col-md-3">
+            <label for="shipping_zipcode">ZIP / Postal Code</label>
+            <input
+              type="text"
+              class="form-control"
+              id="shipping_zipcode"
+              name="shipping_zipcode"
+              value="{{ shipping.get('shipping_zipcode', '') }}"
+            />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="shipping_country">Country</label>
+          <input
+            type="text"
+            class="form-control"
+            id="shipping_country"
+            name="shipping_country"
+            value="{{ shipping.get('shipping_country', '') }}"
+          />
+        </div>
+      </fieldset>
+
+      {# Order Summary & Status #}
+      <fieldset class="mb-4">
+        <legend class="h4">Order Summary</legend>
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label for="order-total">Total ($)</label>
+            <input
+              type="number"
+              step="0.01"
+              class="form-control"
+              id="order-total"
+              name="total"
+              value="{{ order.get('total', 0.0) }}"
+            />
+          </div>
+          <div class="form-group col-md-6">
+            <label for="status">Status</label>
+            <select
+              class="form-control"
+              id="status"
+              name="status"
+            >
+              <option value="pending" {% if order.get('status') == 'pending' %}selected{% endif %}>Pending</option>
+              <option value="processing" {% if order.get('status') == 'processing' %}selected{% endif %}>Processing</option>
+              <option value="shipped" {% if order.get('status') == 'shipped' %}selected{% endif %}>Shipped</option>
+              <option value="delivered" {% if order.get('status') == 'delivered' %}selected{% endif %}>Delivered</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="shipping_address_legacy">Shipping Address (Legacy)</label>
+          <textarea
+            class="form-control"
+            id="shipping_address_legacy"
+            name="shipping_address"
+            rows="3"
+          >{{ order.get('shipping_address', '') }}</textarea>
+        </div>
+      </fieldset>
+
+      {# Form Actions #}
+      <div class="form-group">
+        <button type="submit" class="btn btn-success">Save</button>
+        <a href="{{ orders_url }}" class="btn btn-secondary ml-2">Cancel</a>
+      </div>
+
+    </form>
+  </div>
+
+  <script>
+    let productCount = {{ (summary.products|length if summary.products is defined else 0) }};
+
+    function addProduct() {
+      const container = document.getElementById('products-container');
+      const productDiv = document.createElement('div');
+      productDiv.className = 'product-item';
+      productDiv.innerHTML = `
+        <div class="product-header">
+          Product ${productCount + 1}
+          <button type="button" class="remove-product" onclick="removeProduct(this)">&times;</button>
+        </div>
+        <div class="row">
+          <div class="col-md-4">
+            <div class="form-group">
+              <label>Product ID</label>
+              <input type="text" class="form-control" name="product_id_${productCount}" />
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="form-group">
+              <label>Product Name</label>
+              <input type="text" class="form-control" name="product_name_${productCount}" required />
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-12">
+            <div class="form-group">
+              <label>Description</label>
+              <input type="text" class="form-control" name="description_${productCount}" />
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-4">
+            <div class="form-group">
+              <label>Quantity</label>
+              <input type="number" class="form-control quantity-input" name="quantity_${productCount}" value="1" min="1" onchange="calculateProductTotal(this)" />
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group">
+              <label>Unit Price ($)</label>
+              <input type="number" step="0.01" class="form-control price-input" name="unit_price_${productCount}" value="0.00" min="0" onchange="calculateProductTotal(this)" />
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group">
+              <label>Total Price ($)</label>
+              <input type="number" step="0.01" class="form-control total-input" readonly value="0.00" />
+            </div>
+          </div>
+        </div>
+      `;
+      container.appendChild(productDiv);
+      productCount++;
+      updateOrderTotal();
+    }
+
+    function removeProduct(button) {
+      const productItem = button.closest('.product-item');
+      productItem.remove();
+      updateOrderTotal();
+      renumberProducts();
+    }
+
+    function renumberProducts() {
+      const productItems = document.querySelectorAll('.product-item');
+      productItems.forEach((item, index) => {
+        const header = item.querySelector('.product-header');
+        header.childNodes[0].textContent = `Product ${index + 1}`;
+        
+        const inputs = item.querySelectorAll('input[name^="product_id_"], input[name^="product_name_"], input[name^="description_"], input[name^="quantity_"], input[name^="unit_price_"]');
+        inputs.forEach(input => {
+          const namePrefix = input.name.split('_')[0] + '_' + input.name.split('_')[1] + '_';
+          input.name = namePrefix + index;
+        });
+      });
+    }
+
+    function calculateProductTotal(element) {
+      const productItem = element.closest('.product-item');
+      const quantity = parseFloat(productItem.querySelector('.quantity-input').value) || 0;
+      const unitPrice = parseFloat(productItem.querySelector('.price-input').value) || 0;
+      const total = quantity * unitPrice;
+      
+      productItem.querySelector('.total-input').value = total.toFixed(2);
+      updateOrderTotal();
+    }
+
+    function updateOrderTotal() {
+      const totalInputs = document.querySelectorAll('.total-input');
+      let grandTotal = 0;
+      totalInputs.forEach(input => {
+        grandTotal += parseFloat(input.value) || 0;
+      });
+      document.getElementById('order-total').value = grandTotal.toFixed(2);
+    }
+
+    // Calculate totals on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      const productItems = document.querySelectorAll('.product-item');
+      productItems.forEach(item => {
+        const quantityInput = item.querySelector('.quantity-input');
+        if (quantityInput) {
+          calculateProductTotal(quantityInput);
+        }
+      });
+    });
+  </script>
+{% endblock %}

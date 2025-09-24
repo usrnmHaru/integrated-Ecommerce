@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- Header -->
+<header class=" py-5" style="background-color: #000000;">
+    <div class="container px-4 px-lg-5 my-5">
+        <div class="text-center text-white">
+            <h1 class="display-4 fw-bolder">Login</h1>
+            <p class="lead fw-normal text-white-50 mb-0">Sign in to Your Account</p>
+        </div>
+    </div>
+</header>
+
+<!-- Login Form Section -->
+<section class="py-5">
+    <div class="container px-4 px-lg-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-6 col-md-8 col-sm-10">
+                <div class="card shadow-lg border-0 rounded-3">
+                    <div class="card-body p-4 p-lg-5">
+                        <h2 class="text-center mb-4">Welcome Back</h2>
+                        <form method="POST" action="{% url 'login' %}">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control form-control-lg" id="username" name="username" placeholder="Enter your username" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control form-control-lg" id="password" name="password" placeholder="Enter your password" required>
+                            </div>
+                            <div class="d-grid">
+  <button type="submit"
+          class="btn btn-dark btn-lg custom-login-btn"
+          style="background-color: #000000; border-color: #000000; color: #ffffff;">
+    Login
+  </button>
+</div>
+                        </form>
+                        <div class="text-center mt-4">
+                            <p class="text-muted">Don't have an account? <a href="{% url 'register' %}" class="text-decoration-none">Sign up</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Custom CSS -->
+<style>
+.custom-login-btn {
+    background-color: #1c2526;
+    border-color: #1c2526;
+    transition: all 0.3s ease;
+}
+
+.custom-login-btn:hover {
+    background-color: #2e3b3e;
+    border-color: #2e3b3e;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.card {
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+</style>
+
+{% endblock %}

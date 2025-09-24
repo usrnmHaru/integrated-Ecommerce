@@ -1,0 +1,105 @@
+{% load static %}
+
+<!-- Navigation -->
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container px-4 px-lg-5">
+        <a class="navbar-brand d-flex align-items-center" href="{% url 'home' %}">
+            <img src="{% static 'assets/mid.png' %}" style="height: 35px; margin-right: 10px;" alt="Midnight Carry Logo">
+            <span class="fw-bold">Midnight Carry</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
+                <li class="nav-item mx-2">
+                    <a class="nav-link active" aria-current="page" href="{% url 'home' %}" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderRadius='5px';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderRadius='0';">Home</a>
+                </li>
+                <li class="nav-item mx-2">
+                    <a class="nav-link active" aria-current="page" href="{% url 'search' %}" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderRadius='5px';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderRadius='0';">Search</a>
+                </li>
+                <li class="nav-item mx-2">
+                    <a class="nav-link" href="{% url 'about' %}" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderRadius='5px';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderRadius='0';">About</a>
+                </li>
+                {% if user.is_authenticated %}
+                <li class="nav-item dropdown mx-2">
+                    <a class="nav-link dropdown-toggle" id="navbarDropdownProfile" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderRadius='5px';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderRadius='0';">Profile</a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownProfile">
+                        <li><a class="dropdown-item" href="{% url 'update_user' %}">User Profile</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="{% url 'update_info' %}">User Info</a></li>
+                    </ul>
+                </li>
+                {% if user.is_superuser %}
+                <li class="nav-item dropdown mx-2">
+                    <a class="nav-link dropdown-toggle" id="navbarDropdownOrders" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderRadius='5px';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderRadius='0';">Orders</a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownOrders">
+                        <li><a class="dropdown-item" href="{% url 'shipped_dash' %}">Shipped Orders</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="{% url 'not_shipped_dash' %}">UnShipped Orders</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+                <li class="nav-item dropdown mx-2">
+                    <a class="nav-link dropdown-toggle" id="navbarDropdownCategories" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderRadius='5px';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderRadius='0';">Categories</a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownCategories">
+                        <li><a class="dropdown-item" href="{% url 'category_summary' %}">All Products</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'Shoulder-Bags' %}">Shoulder Bags</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'Tote-Bags' %}">Tote Bags</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'Backpack' %}">Backpack</a></li>
+                    </ul>
+                </li>
+                {% else %}
+                <li class="nav-item mx-2">
+                    <a class="nav-link" href="{% url 'login' %}" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderRadius='5px';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderRadius='0';">Login</a>
+                </li>
+                <li class="nav-item mx-2">
+                    <a class="nav-link" href="{% url 'register' %}" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderRadius='5px';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderRadius='0';">Register</a>
+                </li>
+                <li class="nav-item dropdown mx-2">
+                    <a class="nav-link dropdown-toggle" id="navbarDropdownCategories" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderRadius='5px';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderRadius='0';">Categories</a>
+                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownCategories">
+                        <li><a class="dropdown-item" href="{% url 'category_summary' %}">All Products</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'Shoulder-Bags' %}">Shoulder Bags</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'Tote-Bags' %}">Tote Bags</a></li>
+                        <li><a class="dropdown-item" href="{% url 'category' 'Backpack' %}">Backpack</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+            </ul>
+            <form class="d-flex align-items-center">
+                <a href="{% url 'cart_summary' %}" class="btn btn-outline-dark me-2" style="transition: all 0.15s ease-in-out;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderColor='#000000';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#212529'; this.style.borderColor='#212529';">
+                    <i class="bi-cart-fill me-1"></i>
+                    Cart
+                    <span class="badge bg-dark text-white ms-1 rounded-pill" id="cart_quantity">{{ cart|length }}</span>
+                </a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'logout' %}" class="btn btn-dark" style="transition: all 0.15s ease-in-out; background-color: #000000; border-color: #000000;" onmouseover="this.style.backgroundColor='#ffd6e4'; this.style.color='#000000'; this.style.borderColor='#000000';" onmouseout="this.style.backgroundColor='#000000'; this.style.color='#ffffff'; this.style.borderColor='#000000';">
+                    <i class="bi-box-arrow-right me-1"></i>
+                    Logout
+                </a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</nav>
+
+<!-- Custom CSS -->
+<style>
+.navbar-nav .nav-link, .navbar-nav .btn {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+}
+
+.dropdown-menu {
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item:hover {
+    background-color: #ffd6e4;
+    color: #000000;
+}
+</style>

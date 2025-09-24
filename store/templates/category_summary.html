@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<!-- Header -->
+<header class="category-header">
+    <div class="container px-4 px-lg-5 my-5">
+        <div class="text-center text-white">
+            <h1 class="display-4 fw-bolder">Categories</h1>
+            <p class="lead fw-normal text-white-50 mb-0">Choose Your Category Below...</p>
+        </div>
+    </div>
+</header>
+
+<!-- Categories Section -->
+<div class="container my-5">
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% for category in categories %}
+        <div class="col">
+            <div class="card category-card">
+                <div class="card-body text-center">
+                    <h3 class="card-title mb-0"><a class="category-link" href="{% url 'category' category %}">{{ category }}</a></h3>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    .category-header {
+        background-color: #000000;
+        color: white;
+        padding: 100px 0;
+    }
+    .category-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: background-color 0.2s, transform 0.2s;
+    }
+    .category-card:hover {
+        background-color: #ffd6e4;
+        transform: translateY(-5px);
+    }
+.category-link {
+    text-decoration: none;
+    color: #000000;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.category-link:hover {
+    color: #000000; /* stays black on hover */
+}
+
+
+</style>
+{% endblock %}

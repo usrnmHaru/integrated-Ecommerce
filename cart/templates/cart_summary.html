@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<!-- Header -->
+<header class=" py-5" style="background-color: #000000;">
+    <div class="container px-4 px-lg-5 my-5">
+        <div class="text-center text-white">
+            <h1 class="display-4 fw-bolder">Shopping Cart</h1>
+            <p class="lead fw-normal text-white-50 mb-0">View Your Cart...</p>
+        </div>
+    </div>
+</header>
+
+<div class="container py-5">
+    {% if cart_products %}
+        {% for product in cart_products %}
+            <div class="card mb-4 shadow-lg border-0 rounded-3">
+                <div class="row g-0">
+                    <div class="col-md-6">
+                        <img src="{{ product.image.url }}" class="img-fluid rounded-start w-100 p-4" alt="..." style="object-fit: contain; max-height: 400px;">
+                    </div>
+                    <div class="col-md-6 d-flex flex-column justify-content-center p-4">
+                        <div class="text-center">
+                            <h4 class="card-title fw-bold mb-3">{{ product.name }}</h4>
+                            <p class="card-text text-muted mb-4">{{ product.description }}</p>
+                            <div class="mb-4">
+                                {% if product.is_sale %}
+                                    <div class="d-flex justify-content-center align-items-center mb-2">
+
+                                        <span class="mx-2 fs-6 text-warning fw-semibold">Sale!</span>
+                                        <i class="bi-star-fill text-warning"></i><i class="bi-star-fill text-warning"></i>
+                                    </div>
+                                    <div class="text-center">
+                                        <strike class="text-muted">₱{{ product.price }}</strike>
+                                        <span class="h4 text-danger fw-bold mx-2">₱{{ product.sale_price }}</span>
+                                    </div>
+                                {% else %}
+                                    <h4 class="text-dark fw-bold">₱{{ product.price }}</h4>
+                                {% endif %}
+                            </div>
+                            <div class="mb-4">
+                                <div class="row justify-content-center align-items-center">
+                                    <div class="col-auto pe-0">Quantity:</div>
+                                    <div class="col-auto">
+                                        <select class="form-select form-select-sm" id="select{{product.id}}">
+                                            {% for key, value in quantities.items %}
+                                                {% if key == product.id|slugify %}
+                                                    <option selected>{{ value }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer p-3 border-top-0 bg-transparent mt-auto">
+                                <div class="text-center">
+                                    <a href="{% url 'home' %}" class="btn btn-outline-dark me-2" style="transition: color 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;" onmouseover="this.style.color='#000000'; this.style.borderColor='#ffd6e4'; this.style.backgroundColor='#ffd6e4';" onmouseout="this.style.color=''; this.style.borderColor=''; this.style.backgroundColor='';">Home</a>
+                                    <button type="button" data-index="{{product.id}}" class="btn btn-outline-dark me-2 update-cart" style="transition: color 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;" onmouseover="this.style.color='#000000'; this.style.borderColor='#ffd6e4'; this.style.backgroundColor='#ffd6e4';" onmouseout="this.style.color=''; this.style.borderColor=''; this.style.backgroundColor='';">Update</button>
+                                    <button type="button" data-index="{{product.id}}" class="btn btn-danger delete-product" style="transition: color 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;" onmouseover="this.style.color='#ffffff'; this.style.borderColor='#dc3545'; this.style.backgroundColor='#dc3545';" onmouseout="this.style.color=''; this.style.borderColor=''; this.style.backgroundColor='';">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        <div class="text-end">
+            <h3 class="fw-bold">Total: ₱{{ totals }}</h3>
+            <a href="{% url 'checkout' %}" class="btn btn-success" style="transition: color 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;" onmouseover="this.style.color='#ffffff'; this.style.borderColor='#198754'; this.style.backgroundColor='#198754';" onmouseout="this.style.color=''; this.style.borderColor=''; this.style.backgroundColor='';">Checkout</a>
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <h4 class="text-muted">There's Nothing In Your Cart...</h4>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+// Update Cart
+$(document).on('click', '.update-cart', function(e){
+    e.preventDefault();
+    var productid = $(this).data('index');
+    $.ajax({
+        type: 'POST',
+        url: '{% url 'cart_update' %}',
+        data: {
+            product_id: $(this).data('index'),
+            product_qty: $('#select' + productid + ' option:selected').text(),
+            csrfmiddlewaretoken: '{{ csrf_token }}',
+            action: 'post'
+        },
+        success: function(json){
+            location.reload();
+        },
+        error: function(xhr, errmsg, err){
+        }
+    });
+});
+
+// Delete Item From Cart
+$(document).on('click', '.delete-product', function(e){
+    e.preventDefault();
+    $.ajax({
+        type: 'POST',
+        url: '{% url 'cart_delete' %}',
+        data: {
+            product_id: $(this).data('index'),
+            csrfmiddlewaretoken: '{{ csrf_token }}',
+            action: 'post'
+        },
+        success: function(json){
+            location.reload();
+        },
+        error: function(xhr, errmsg, err){
+        }
+    });
+});
+</script>
+
+{% endblock %}
