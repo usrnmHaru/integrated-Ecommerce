@@ -8,5 +8,5 @@ urlpatterns = [
     path('', include('store.urls')),
     path('cart/', include('cart.urls')),
     path('payment/', include('payment.urls')),
-    path('api/', include('payment.urls')),  # NEW: Add top-level API route
+    path('api/', include('payment.urls')), 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
