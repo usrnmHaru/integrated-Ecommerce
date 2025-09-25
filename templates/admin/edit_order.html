@@ -1,449 +1,117 @@
 {% extends 'admin/base.html' %}
 
-{% block head_css %}
-<style>
-  .card-section {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 2rem;
-    background-color: #fff;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  }
-
-  .card-section legend {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: black; /* changed from #333 */
-    margin-bottom: 1rem;
-    border-bottom: 2px solid black; /* changed from #007bff */
-    padding-bottom: 5px;
-  }
-
-  .product-item {
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 15px;
-    margin-bottom: 1.5rem;
-    background-color: #fdfdfd;
-  }
-
-  .product-header {
-    background-color: black; /* changed from #007bff */
-    color: white;
-    padding: 8px 12px;
-    margin: -15px -15px 15px -15px;
-    border-radius: 6px 6px 0 0;
-    font-weight: bold;
-    position: relative;
-  }
-
-  .remove-product {
-    position: absolute;
-    right: 12px;
-    top: 8px;
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.25rem;
-    cursor: pointer;
-  }
-
-  .remove-product:hover {
-    color: #ffcccc;
-  }
-
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 2rem;
-  }
-</style>
-
-
-{% endblock %}
-
 {% block body %}
-<div class="container mt-4">
-  <h1 class="mb-4">Edit Order #{{ order_id }}</h1>
-
-  <form method="POST" action="{{ url_for('orderview.edit', order_id=order_id) }}">
-
-  {# Products Section #}
-    <fieldset class="card-section">
-      <legend>Order Products</legend>
-      <div id="products-container">
-
-          {% set summary = order.get('order_summary', '{}') | fromjson %}
-          {% if summary.products is defined and summary.products %}
-            {% for product in summary.products %}
-              <div class="product-item">
-                <div class="product-header">
-                  Product {{ loop.index }}
-                  <button type="button" class="remove-product" onclick="removeProduct(this)">&times;</button>
-                </div>
-                
-                <div class="form-row">
-                  <div class="form-group col-md-4">
-                    <label for="product_id_{{ loop.index0 }}">Product ID</label>
-                    <input
-                      type="text"
-                      class="form-control"
-                      id="product_id_{{ loop.index0 }}"
-                      name="product_id_{{ loop.index0 }}"
-                      value="{{ product.product_id|default(product.id|default('')) }}"
-                    />
-                  </div>
-                  <div class="form-group col-md-8">
-                    <label for="product_name_{{ loop.index0 }}">Product Name</label>
-                    <input
-                      type="text"
-                      class="form-control"
-                      id="product_name_{{ loop.index0 }}"
-                      name="product_name_{{ loop.index0 }}"
-                      value="{{ product.product_name|default(product.name|default('')) }}"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label for="description_{{ loop.index0 }}">Description</label>
-                  <input
-                    type="text"
-                    class="form-control"
-                    id="description_{{ loop.index0 }}"
-                    name="description_{{ loop.index0 }}"
-                    value="{{ product.description|default('') }}"
-                  />
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group col-md-4">
-                    <label for="quantity_{{ loop.index0 }}">Quantity</label>
-                    <input
-                      type="number"
-                      class="form-control quantity-input"
-                      id="quantity_{{ loop.index0 }}"
-                      name="quantity_{{ loop.index0 }}"
-                      value="{{ product.quantity|default(1) }}"
-                      min="1"
-                      onchange="calculateProductTotal(this)"
-                    />
-                  </div>
-                  <div class="form-group col-md-4">
-                    <label for="unit_price_{{ loop.index0 }}">Unit Price (₱)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      class="form-control price-input"
-                      id="unit_price_{{ loop.index0 }}"
-                      name="unit_price_{{ loop.index0 }}"
-                      value="{{ product.unit_price|default(product.price|default(0.00)) }}"
-                      min="0"
-                      onchange="calculateProductTotal(this)"
-                    />
-                  </div>
-                  <div class="form-group col-md-4">
-                    <label for="total_price_{{ loop.index0 }}">Total Price (₱)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      class="form-control total-input"
-                      id="total_price_{{ loop.index0 }}"
-                      readonly
-                      value="{{ product.total_price|default((product.quantity|default(0)) * (product.unit_price|default(product.price|default(0)|float))) }}"
-                    />
-                  </div>
-                </div>
-
-              </div>
-            {% endfor %}
-          {% endif %}
-        </div>
-
+<div class="container">
+    <h1>Edit Order #{{ order_id }}</h1>
+    <a href="{{ orders_url }}" class="btn btn-secondary mb-3">Back to Orders</a>
+    <a href="{{ home_url }}" class="btn btn-secondary mb-3">Back to Home</a>
+    
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST">
+        <!-- Customer Information -->
+        <h3>Customer Information</h3>
         <div class="form-group">
-          <button type="button" class="btn btn-success" onclick="addProduct()">Add Product</button>
-        </div>
-      </fieldset>
-
-      {# Billing Details #}
-    <fieldset class="card-section">
-        <legend>Billing Details</legend>
-        <div class="form-row">
-          <div class="form-group col-md-6">
-            <label for="full_name">Full Name (Billing)</label>
-            <input
-              type="text"
-              class="form-control"
-              id="full_name"
-              name="full_name"
-              value="{{ order.get('full_name', '') }}"
-            />
-          </div>
-          <div class="form-group col-md-6">
-            <label for="email">Email (Billing)</label>
-            <input
-              type="email"
-              class="form-control"
-              id="email"
-              name="email"
-              value="{{ order.get('email', '') }}"
-            />
-          </div>
-        </div>
-      </fieldset>
-
-      {# Shipping Details #}
-      {% set shipping = order.get('shipping_info', '{}') | fromjson %}
-         <fieldset class="card-section">
-      <legend>Shipping Details</legend>
-        <div class="form-row">
-          <div class="form-group col-md-6">
-            <label for="shipping_full_name">Full Name</label>
-            <input
-              type="text"
-              class="form-control"
-              id="shipping_full_name"
-              name="shipping_full_name"
-              value="{{ shipping.get('shipping_full_name', '') }}"
-            />
-          </div>
-          <div class="form-group col-md-6">
-            <label for="shipping_email">Email</label>
-            <input
-              type="email"
-              class="form-control"
-              id="shipping_email"
-              name="shipping_email"
-              value="{{ shipping.get('shipping_email', '') }}"
-            />
-          </div>
+            <label for="full_name">Full Name</label>
+            <input type="text" class="form-control" id="full_name" name="full_name" value="{{ order.full_name or '' }}">
         </div>
         <div class="form-group">
-          <label for="shipping_address1">Address 1</label>
-          <input
-            type="text"
-            class="form-control"
-            id="shipping_address1"
-            name="shipping_address1"
-            value="{{ shipping.get('shipping_address1', '') }}"
-          />
+            <label for="email">Email</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ order.email or '' }}">
         </div>
         <div class="form-group">
-          <label for="shipping_address2">Address 2</label>
-          <input
-            type="text"
-            class="form-control"
-            id="shipping_address2"
-            name="shipping_address2"
-            value="{{ shipping.get('shipping_address2', '') }}"
-          />
+            <label for="shipping_address">Shipping Address</label>
+            <textarea class="form-control" id="shipping_address" name="shipping_address">{{ order.shipping_address or '' }}</textarea>
         </div>
-        <div class="form-row">
-          <div class="form-group col-md-6">
-            <label for="shipping_city">City</label>
-            <input
-              type="text"
-              class="form-control"
-              id="shipping_city"
-              name="shipping_city"
-              value="{{ shipping.get('shipping_city', '') }}"
-            />
-          </div>
-          <div class="form-group col-md-3">
-            <label for="shipping_state">State</label>
-            <input
-              type="text"
-              class="form-control"
-              id="shipping_state"
-              name="shipping_state"
-              value="{{ shipping.get('shipping_state', '') }}"
-            />
-          </div>
-          <div class="form-group col-md-3">
-            <label for="shipping_zipcode">ZIP / Postal Code</label>
-            <input
-              type="text"
-              class="form-control"
-              id="shipping_zipcode"
-              name="shipping_zipcode"
-              value="{{ shipping.get('shipping_zipcode', '') }}"
-            />
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="shipping_country">Country</label>
-          <input
-            type="text"
-            class="form-control"
-            id="shipping_country"
-            name="shipping_country"
-            value="{{ shipping.get('shipping_country', '') }}"
-          />
-        </div>
-      </fieldset>
-
-      {# Order Summary & Status #}
-  <fieldset class="card-section">
-      <legend>Order Summary</legend>
-        <div class="form-row">
-          <div class="form-group col-md-6">
-            <label for="order-total">Total (₱)</label>
-            <input
-              type="number"
-              step="0.01"
-              class="form-control"
-              id="order-total"
-              name="total"
-              value="{{ order.get('total', 0.0) }}"
-            />
-          </div>
-          <div class="form-group col-md-6">
-            <label for="status">Status</label>
-            <select
-              class="form-control"
-              id="status"
-              name="status"
-            >
-              <option value="pending" {% if order.get('status') == 'pending' %}selected{% endif %}>Pending</option>
-              <option value="processing" {% if order.get('status') == 'processing' %}selected{% endif %}>Processing</option>
-              <option value="shipped" {% if order.get('status') == 'shipped' %}selected{% endif %}>Shipped</option>
-              <option value="delivered" {% if order.get('status') == 'delivered' %}selected{% endif %}>Delivered</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="shipping_address_legacy">Shipping Address (Legacy)</label>
-          <textarea
-            class="form-control"
-            id="shipping_address_legacy"
-            name="shipping_address"
-            rows="3"
-          >{{ order.get('shipping_address', '') }}</textarea>
-        </div>
-      </fieldset>
-
-      {# Form Actions #}
-    <div class="form-actions">
-        <button type="submit" class="btn btn-success">Save</button>
-        <a href="{{ orders_url }}" class="btn btn-secondary ml-2">Cancel</a>
-      </div>
-
-    </form>
-  </div>
-
-  <script>
-    let productCount = {{ (summary.products|length if summary.products is defined else 0) }};
-
-    function addProduct() {
-      const container = document.getElementById('products-container');
-      const productDiv = document.createElement('div');
-      productDiv.className = 'product-item';
-      productDiv.innerHTML = `
-        <div class="product-header">
-          Product ₱{productCount + 1}
-          <button type="button" class="remove-product" onclick="removeProduct(this)">&times;</button>
-        </div>
-        <div class="row">
-          <div class="col-md-4">
-            <div class="form-group">
-              <label>Product ID</label>
-              <input type="text" class="form-control" name="product_id_${productCount}" />
-            </div>
-          </div>
-          <div class="col-md-8">
-            <div class="form-group">
-              <label>Product Name</label>
-              <input type="text" class="form-control" name="product_name_${productCount}" required />
-            </div>
-          </div>
-        </div>
-        <div class="row">
-          <div class="col-md-12">
-            <div class="form-group">
-              <label>Description</label>
-              <input type="text" class="form-control" name="description_${productCount}" />
-            </div>
-          </div>
-        </div>
-        <div class="row">
-          <div class="col-md-4">
-            <div class="form-group">
-              <label>Quantity</label>
-              <input type="number" class="form-control quantity-input" name="quantity_${productCount}" value="1" min="1" onchange="calculateProductTotal(this)" />
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="form-group">
-              <label>Unit Price (₱)</label>
-              <input type="number" step="0.01" class="form-control price-input" name="unit_price_${productCount}" value="0.00" min="0" onchange="calculateProductTotal(this)" />
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="form-group">
-              <label>Total Price (₱)</label>
-              <input type="number" step="0.01" class="form-control total-input" readonly value="0.00" />
-            </div>
-          </div>
-        </div>
-      `;
-      container.appendChild(productDiv);
-      productCount++;
-      updateOrderTotal();
-    }
-
-    function removeProduct(button) {
-      const productItem = button.closest('.product-item');
-      productItem.remove();
-      updateOrderTotal();
-      renumberProducts();
-    }
-
-    function renumberProducts() {
-      const productItems = document.querySelectorAll('.product-item');
-      productItems.forEach((item, index) => {
-        const header = item.querySelector('.product-header');
-        header.childNodes[0].textContent = `Product ${index + 1}`;
         
-        const inputs = item.querySelectorAll('input[name^="product_id_"], input[name^="product_name_"], input[name^="description_"], input[name^="quantity_"], input[name^="unit_price_"]');
-        inputs.forEach(input => {
-          const namePrefix = input.name.split('_')[0] + '_' + input.name.split('_')[1] + '_';
-          input.name = namePrefix + index;
-        });
-      });
-    }
-
-    function calculateProductTotal(element) {
-      const productItem = element.closest('.product-item');
-      const quantity = parseFloat(productItem.querySelector('.quantity-input').value) || 0;
-      const unitPrice = parseFloat(productItem.querySelector('.price-input').value) || 0;
-      const total = quantity * unitPrice;
-      
-      productItem.querySelector('.total-input').value = total.toFixed(2);
-      updateOrderTotal();
-    }
-
-    function updateOrderTotal() {
-      const totalInputs = document.querySelectorAll('.total-input');
-      let grandTotal = 0;
-      totalInputs.forEach(input => {
-        grandTotal += parseFloat(input.value) || 0;
-      });
-      document.getElementById('order-total').value = grandTotal.toFixed(2);
-    }
-
-    // Calculate totals on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      const productItems = document.querySelectorAll('.product-item');
-      productItems.forEach(item => {
-        const quantityInput = item.querySelector('.quantity-input');
-        if (quantityInput) {
-          calculateProductTotal(quantityInput);
-        }
-      });
-    });
-  </script>
+        <!-- Shipping Information -->
+        <h3>Shipping Information</h3>
+        {% set shipping = (order.shipping_info or '{}') | fromjson %}
+        <div class="form-group">
+            <label for="shipping_full_name">Full Name</label>
+            <input type="text" class="form-control" id="shipping_full_name" name="shipping_full_name" value="{{ shipping.shipping_full_name or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="shipping_email">Email</label>
+            <input type="email" class="form-control" id="shipping_email" name="shipping_email" value="{{ shipping.shipping_email or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="shipping_address1">Address Line 1</label>
+            <input type="text" class="form-control" id="shipping_address1" name="shipping_address1" value="{{ shipping.shipping_address1 or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="shipping_address2">Address Line 2</label>
+            <input type="text" class="form-control" id="shipping_address2" name="shipping_address2" value="{{ shipping.shipping_address2 or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="shipping_city">City</label>
+            <input type="text" class="form-control" id="shipping_city" name="shipping_city" value="{{ shipping.shipping_city or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="shipping_state">State</label>
+            <input type="text" class="form-control" id="shipping_state" name="shipping_state" value="{{ shipping.shipping_state or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="shipping_zipcode">Zipcode</label>
+            <input type="text" class="form-control" id="shipping_zipcode" name="shipping_zipcode" value="{{ shipping.shipping_zipcode or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="shipping_country">Country</label>
+            <input type="text" class="form-control" id="shipping_country" name="shipping_country" value="{{ shipping.shipping_country or '' }}">
+        </div>
+        
+        <!-- Order Summary (Products) -->
+        <h3>Order Summary</h3>
+        {% set summary = (order.order_summary or '{}') | fromjson %}
+        {% for product in summary.products %}
+            <div class="form-group">
+                <h5>Product {{ loop.index }}</h5>
+                <label for="product_name_{{ loop.index0 }}">Product Name</label>
+                <input type="text" class="form-control" id="product_name_{{ loop.index0 }}" name="product_name_{{ loop.index0 }}" value="{{ product.product_name or '' }}">
+                <label for="product_id_{{ loop.index0 }}">Product ID</label>
+                <input type="text" class="form-control" id="product_id_{{ loop.index0 }}" name="product_id_{{ loop.index0 }}" value="{{ product.product_id or '' }}">
+                <label for="description_{{ loop.index0 }}">Description</label>
+                <input type="text" class="form-control" id="description_{{ loop.index0 }}" name="description_{{ loop.index0 }}" value="{{ product.description or '' }}">
+                <label for="quantity_{{ loop.index0 }}">Quantity</label>
+                <input type="number" class="form-control" id="quantity_{{ loop.index0 }}" name="quantity_{{ loop.index0 }}" value="{{ product.quantity or 0 }}">
+                <label for="unit_price_{{ loop.index0 }}">Unit Price</label>
+                <input type="number" step="0.01" class="form-control" id="unit_price_{{ loop.index0 }}" name="unit_price_{{ loop.index0 }}" value="{{ product.unit_price or 0.0 }}">
+            </div>
+        {% endfor %}
+        
+        <!-- Add a new product (optional, can be expanded dynamically with JavaScript) -->
+        <div class="form-group">
+            <h5>Add New Product</h5>
+            <label for="product_name_new">Product Name</label>
+            <input type="text" class="form-control" id="product_name_new" name="product_name_new">
+            <label for="product_id_new">Product ID</label>
+            <input type="text" class="form-control" id="product_id_new" name="product_id_new">
+            <label for="description_new">Description</label>
+            <input type="text" class="form-control" id="description_new" name="description_new">
+            <label for="quantity_new">Quantity</label>
+            <input type="number" class="form-control" id="quantity_new" name="quantity_new" value="1">
+            <label for="unit_price_new">Unit Price</label>
+            <input type="number" step="0.01" class="form-control" id="unit_price_new" name="unit_price_new" value="0.00">
+        </div>
+        
+        <!-- Order Details -->
+        <h3>Order Details</h3>
+        <div class="form-group">
+            <label for="total">Total</label>
+            <input type="number" step="0.01" class="form-control" id="total" name="total" value="{{ order.total or 0.0 }}">
+        </div>
+        <div class="form-group">
+            <label for="status">Status</label>
+            <select class="form-control" id="status" name="status">
+                <option value="pending" {% if order.status == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="shipped" {% if order.status == 'shipped' %}selected{% endif %}>Shipped</option>
+                <option value="delivered" {% if order.status == 'delivered' %}selected{% endif %}>Delivered</option>
+            </select>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+</div>
 {% endblock %}

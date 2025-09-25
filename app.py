@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, redirect, url_for, render_template
+from flask import Flask, request, jsonify, redirect, url_for, render_template, flash
 from flask_admin import Admin, BaseView, AdminIndexView, expose
 from flask_sqlalchemy import SQLAlchemy
 import json
@@ -8,6 +8,19 @@ app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///orders.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)  # Initialize SQLAlchemy
+
+# Define Order model
+class OrderModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_summary = db.Column(db.Text)
+    shipping_info = db.Column(db.Text)
+    total = db.Column(db.Float)
+    status = db.Column(db.String(50))
+    email = db.Column(db.String(120))
+    full_name = db.Column(db.String(120))
+    shipping_address = db.Column(db.Text)
 
 # Add custom fromjson filter to Flask's existing Jinja2 environment
 def fromjson_filter(v):
@@ -37,21 +50,18 @@ class SecureAdminIndexView(AdminIndexView):
 admin = Admin(app, name='Order Management', template_mode='bootstrap4', index_view=SecureAdminIndexView())
 admin.base_template = 'admin/base.html'
 
-# In-memory dictionary for orders
-orders_db = {}
-next_order_id = 1
-
-# Custom Flask-Admin view for managing orders_db
+# Custom Flask-Admin view for managing orders
 class OrderView(BaseView):
     @expose('/')
     def index(self):
         home_url = url_for('index')
         orders_url = url_for('orderview.index')
-        return self.render('admin/orders.html', orders=orders_db, home_url=home_url, orders_url=orders_url)
+        orders = OrderModel.query.all()
+        return self.render('admin/orders.html', orders=orders, home_url=home_url, orders_url=orders_url)
 
     @expose('/edit/<int:order_id>', methods=['GET', 'POST'])
     def edit(self, order_id):
-        order = orders_db.get(order_id)
+        order = OrderModel.query.get(order_id)
         if not order:
             return redirect(url_for('orderview.index'))
         home_url = url_for('index')
@@ -60,17 +70,17 @@ class OrderView(BaseView):
         if request.method == 'POST':
             # Parse current shipping_info
             current_shipping = {}
-            if order.get('shipping_info'):
+            if order.shipping_info:
                 try:
-                    current_shipping = json.loads(order.get('shipping_info'))
+                    current_shipping = json.loads(order.shipping_info)
                 except (json.JSONDecodeError, TypeError):
                     current_shipping = {}
 
             # Parse current order_summary
             current_summary = {}
-            if order.get('order_summary'):
+            if order.order_summary:
                 try:
-                    current_summary = json.loads(order.get('order_summary'))
+                    current_summary = json.loads(order.order_summary)
                 except (json.JSONDecodeError, TypeError):
                     current_summary = {}
 
@@ -120,8 +130,8 @@ class OrderView(BaseView):
             order_summary = {'products': products}
 
             # Sync top-level fields to shipping versions if provided
-            new_email = request.form.get('email', order.get('email', ''))
-            new_full_name = request.form.get('full_name', order.get('full_name', ''))
+            new_email = request.form.get('email', order.email)
+            new_full_name = request.form.get('full_name', order.full_name)
             if request.form.get('shipping_email'):
                 new_email = request.form.get('shipping_email', '')
             if request.form.get('shipping_full_name'):
@@ -135,25 +145,38 @@ class OrderView(BaseView):
             except ValueError:
                 total = calculated_total
 
-            new_status = request.form.get('status', order.get('status', 'pending'))
-            orders_db[order_id] = {
-                'order_summary': json.dumps(order_summary),
-                'shipping_info': json.dumps(shipping_info),
-                'total': total,
-                'status': new_status,
-                'email': new_email,
-                'full_name': new_full_name,
-                'shipping_address': request.form.get('shipping_address', order.get('shipping_address', ''))
-            }
+            new_status = request.form.get('status', order.status)
 
-            # Update Django via API
-            django_status = 'shipped' if new_status.lower() in ['shipped', 'delivered'] else 'pending'
+            # Update order in database
+            order.order_summary = json.dumps(order_summary)
+            order.shipping_info = json.dumps(shipping_info)
+            order.total = total
+            order.status = new_status
+            order.email = new_email
+            order.full_name = new_full_name
+            order.shipping_address = request.form.get('shipping_address', order.shipping_address)
+            db.session.commit()
+
+            # Sync full order to Django
+            update_data = {
+                'order_summary': order.order_summary,
+                'shipping_info': order.shipping_info,
+                'total': order.total,
+                'status': order.status,
+                'email': order.email,
+                'full_name': order.full_name,
+                'shipping_address': order.shipping_address
+            }
             try:
-                response = requests.put(f'http://127.0.0.1:8000/api/orders/{order_id}/status/', json={'status': django_status})
+                response = requests.put(f'http://127.0.0.1:8000/payment/api/orders/{order_id}/', json=update_data, timeout=5)
+                print(f"Django Sync Debug - Status: {response.status_code}, Response: {response.text[:200]}...")  # Enhanced logging
                 if response.status_code != 200:
-                    print(f"Failed to update Django: {response.status_code} - {response.text}")
+                    flash(f"Local update saved, but sync failed: {response.status_code} - {response.text[:100]}", 'error')
+                    return redirect(orders_url)
             except requests.exceptions.RequestException as e:
-                print(f"Failed to update Django: {e}")
+                print(f"Django Sync Debug - Exception: {str(e)}")  # Enhanced logging
+                flash("Local update saved, but sync failed due to connection issue. Is Django running on port 8000?", 'error')
+                return redirect(orders_url)
 
             return redirect(orders_url)
         
@@ -161,12 +184,14 @@ class OrderView(BaseView):
 
     @expose('/delete/<int:order_id>')
     def delete(self, order_id):
-        if order_id in orders_db:
-            # Delete from Flask's in-memory database
-            del orders_db[order_id]
+        order = OrderModel.query.get(order_id)
+        if order:
+            db.session.delete(order)
+            db.session.commit()
             # Delete from Django via API
             try:
-                response = requests.delete(f'http://127.0.0.1:8000/api/orders/{order_id}/delete/')
+                response = requests.delete(f'http://127.0.0.1:8000/payment/api/orders/{order_id}/delete/', timeout=5)
+                print(f"Django Delete Debug - Status: {response.status_code}, Response: {response.text[:200]}...")  # Enhanced logging
                 if response.status_code != 200:
                     print(f"Failed to delete order in Django: {response.status_code} - {response.text}")
                     return jsonify({'status': 'error', 'message': f'Failed to delete order in Django: {response.text}'}), response.status_code
@@ -174,7 +199,7 @@ class OrderView(BaseView):
                 print(f"Failed to delete order in Django: {e}")
                 return jsonify({'status': 'error', 'message': f'Failed to delete order in Django: {str(e)}'}), 500
         else:
-            print(f"Order {order_id} not found in Flask orders_db")
+            print(f"Order {order_id} not found in Flask database")
         return redirect(url_for('orderview.index'))
 
 admin.add_view(OrderView(name='Orders', endpoint='orderview'))
@@ -182,11 +207,14 @@ admin.add_view(OrderView(name='Orders', endpoint='orderview'))
 # Route for creating an order
 @app.route('/process_checkout', methods=['POST'])
 def process_checkout():
-    global next_order_id
     try:
         data = request.json
         print("Data received from Django:", data)
-        order_id = next_order_id
+        order_id = data.get('order_id')  # Use Django-provided ID if available
+        if not order_id:
+            order_id = OrderModel.query.order_by(OrderModel.id.desc()).first()
+            order_id = (order_id.id + 1) if order_id else 1
+
         shipping_info = data.get('shipping_info', {})
         
         # Handle cart_items data structure
@@ -223,16 +251,19 @@ def process_checkout():
         # Use total_amount if available, otherwise use total
         total_value = data.get('total_amount', data.get('total', 0.0))
         
-        orders_db[order_id] = {
-            'order_summary': json.dumps(order_summary),
-            'shipping_info': json.dumps(shipping_info),
-            'total': float(total_value),
-            'status': data.get('status', 'pending'),
-            'email': data.get('email', ''),
-            'full_name': data.get('full_name', ''),
-            'shipping_address': data.get('shipping_address', '')
-        }
-        next_order_id += 1
+        order = OrderModel(
+            id=order_id,
+            order_summary=json.dumps(order_summary),
+            shipping_info=json.dumps(shipping_info),
+            total=float(total_value),
+            status=data.get('status', 'pending'),
+            email=data.get('email', ''),
+            full_name=data.get('full_name', ''),
+            shipping_address=data.get('shipping_address', '')
+        )
+        db.session.merge(order)  # Use merge to update if ID exists
+        db.session.commit()
+        
         response = {
             'status': 'success',
             'message': 'Payment processed and order created!',
@@ -240,35 +271,43 @@ def process_checkout():
         }
         return jsonify(response)
     except Exception as e:
-        return jsonify({'status': 'failed', 'message': f'An error occurred: {e}'})
+        return jsonify({'status': 'failed', 'message': f'An error occurred: {str(e)}'}), 500
 
-# Debug route to inspect orders_db
+# Debug route to inspect orders
 @app.route('/debug_orders')
 def debug_orders():
-    return jsonify(orders_db)
+    orders = OrderModel.query.all()
+    return jsonify([{c.name: getattr(o, c.name) for c in o.__table__.columns} for o in orders])
 
 # Other routes
 @app.route('/orders/<int:order_id>', methods=['GET'])
 def get_order(order_id):
-    order = orders_db.get(order_id)
+    order = OrderModel.query.get(order_id)
     if order:
-        return jsonify({'status': 'success', 'order': order})
+        return jsonify({
+            'status': 'success',
+            'order': {c.name: getattr(order, c.name) for c in order.__table__.columns}
+        })
     return jsonify({'status': 'failed', 'message': 'Order not found'}), 404
 
 @app.route('/orders/<int:order_id>', methods=['PUT'])
 def update_order(order_id):
     data = request.json
-    order = orders_db.get(order_id)
+    order = OrderModel.query.get(order_id)
     if not order:
         return jsonify({'status': 'failed', 'message': 'Order not found'}), 404
     for key, value in data.items():
-        order[key] = value
+        if hasattr(order, key):
+            setattr(order, key, value if key not in ['order_summary', 'shipping_info'] else json.dumps(value))
+    db.session.commit()
     return jsonify({'status': 'success', 'message': 'Order updated successfully'})
 
 @app.route('/orders/<int:order_id>', methods=['DELETE'])
 def delete_order(order_id):
-    if order_id in orders_db:
-        del orders_db[order_id]
+    order = OrderModel.query.get(order_id)
+    if order:
+        db.session.delete(order)
+        db.session.commit()
         return jsonify({'status': 'success', 'message': 'Order deleted successfully'})
     return jsonify({'status': 'failed', 'message': 'Order not found'}), 404
 
@@ -277,4 +316,6 @@ def index():
     return render_template('landing.html')
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()  # Create database tables
     app.run(debug=True, port=5000)

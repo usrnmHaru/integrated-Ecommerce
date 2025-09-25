@@ -67,7 +67,7 @@ def not_shipped_dash(request):
                     messages.error(request, "Order not found")
             else:
                 messages.error(request, "Invalid form data")
-            return redirect('not_shipped_dash')  # Redirect to same dashboard
+            return redirect('not_shipped_dash')
         return render(request, "payment/not_shipped_dash.html", {"orders": orders})
     else:
         messages.success(request, "Access Denied")
@@ -93,7 +93,7 @@ def shipped_dash(request):
                     messages.error(request, "Order not found")
             else:
                 messages.error(request, "Invalid form data")
-            return redirect('shipped_dash')  # Redirect to same dashboard
+            return redirect('shipped_dash')
         return render(request, "payment/shipped_dash.html", {"orders": orders})
     else:
         messages.success(request, "Access Denied")
@@ -165,18 +165,57 @@ def billing_info(request):
         totals = cart.cart_total()
         my_shipping = request.POST
         request.session['my_shipping'] = my_shipping
+
+        # Create order in Django first
+        full_name = my_shipping['shipping_full_name']
+        email = my_shipping['shipping_email']
+        shipping_address = f"{my_shipping['shipping_address1']}\n{my_shipping['shipping_address2']}\n{my_shipping['shipping_city']}\n{my_shipping['shipping_state']}\n{my_shipping['shipping_zipcode']}\n{my_shipping['shipping_country']}"
+        amount_paid = totals
+
+        if request.user.is_authenticated:
+            user = request.user
+            create_order = Order(user=user, full_name=full_name, email=email, shipping_address=shipping_address,
+                                 amount_paid=amount_paid)
+        else:
+            create_order = Order(full_name=full_name, email=email, shipping_address=shipping_address,
+                                 amount_paid=amount_paid)
+        create_order.save()
+        order_id = create_order.pk
+
+        # Create OrderItems
+        for product in cart_products():
+            product_id = product.id
+            price = product.sale_price if product.is_sale else product.price
+            for key, value in quantities().items():
+                if int(key) == product.id:
+                    create_order_item = OrderItem(
+                        order_id=order_id,
+                        product_id=product_id,
+                        user=request.user if request.user.is_authenticated else None,
+                        quantity=value,
+                        price=price
+                    )
+                    create_order_item.save()
+
+        # Prepare data for Flask
         total_amount_str = str(totals)
         data_to_send = {
+            'order_id': order_id,
             'shipping_info': dict(my_shipping.items()),
             'cart_items': [
                 {
                     'id': str(p.id),
                     'name': p.name,
                     'price': str(p.sale_price if p.is_sale else p.price),
-                    'quantity': quantities().get(str(p.id))
+                    'quantity': quantities().get(str(p.id)),
+                    'description': p.description or ''
                 } for p in cart_products()
             ],
-            'total_amount': total_amount_str
+            'total_amount': total_amount_str,
+            'status': 'pending',
+            'email': email,
+            'full_name': full_name,
+            'shipping_address': shipping_address
         }
         api_url = 'http://127.0.0.1:5000/process_checkout'
         try:
@@ -184,37 +223,6 @@ def billing_info(request):
             if response.status_code == 200:
                 result = response.json()
                 if result.get('status') == 'success':
-                    full_name = my_shipping['shipping_full_name']
-                    email = my_shipping['shipping_email']
-                    shipping_address = f"{my_shipping['shipping_address1']}\n{my_shipping['shipping_address2']}\n{my_shipping['shipping_city']}\n{my_shipping['shipping_state']}\n{my_shipping['shipping_zipcode']}\n{my_shipping['shipping_country']}"
-                    amount_paid = totals
-                    if request.user.is_authenticated:
-                        user = request.user
-                        create_order = Order(user=user, full_name=full_name, email=email, shipping_address=shipping_address,
-                                             amount_paid=amount_paid)
-                        create_order.save()
-                        order_id = create_order.pk
-                        for product in cart_products():
-                            product_id = product.id
-                            price = product.sale_price if product.is_sale else product.price
-                            for key, value in quantities().items():
-                                if int(key) == product.id:
-                                    create_order_item = OrderItem(order_id=order_id, product_id=product_id, user=user,
-                                                                  quantity=value, price=price)
-                                    create_order_item.save()
-                    else:
-                        create_order = Order(full_name=full_name, email=email, shipping_address=shipping_address,
-                                             amount_paid=amount_paid)
-                        create_order.save()
-                        order_id = create_order.pk
-                        for product in cart_products():
-                            product_id = product.id
-                            price = product.sale_price if product.is_sale else product.price
-                            for key, value in quantities().items():
-                                if int(key) == product.id:
-                                    create_order_item = OrderItem(order_id=order_id, product_id=product_id, quantity=value,
-                                                                  price=price)
-                                    create_order_item.save()
                     for key in list(request.session.keys()):
                         if key == "session_key":
                             del request.session[key]
@@ -230,7 +238,7 @@ def billing_info(request):
                 messages.error(request, "Error communicating with the payment service.")
                 return redirect('payment_failed')
         except requests.exceptions.RequestException as e:
-            messages.error(request, f"Could not connect to the payment service. Please try again later. Error: {e}")
+            messages.error(request, f"Could not connect to the payment service. Error: {e}")
             return redirect('payment_failed')
     else:
         messages.success(request, "Access Denied")
@@ -279,9 +287,67 @@ def update_order_status(request, pk):
             order.date_shipped = now
         else:
             order.shipped = False
-            order.date_shipped = None  # Reset date_shipped when unshipped
+            order.date_shipped = None
         order.save()
         return JsonResponse({'status': 'success', 'message': 'Shipping Status Updated'})
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+@csrf_exempt
+def update_order(request, pk):
+    if request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        try:
+            order = Order.objects.get(id=pk)
+        except Order.DoesNotExist:
+            return JsonResponse({'error': 'Order not found'}, status=404)
+        
+        # Update fields
+        order.full_name = data.get('full_name', order.full_name)
+        order.email = data.get('email', order.email)
+        order.shipping_address = data.get('shipping_address', order.shipping_address)
+        order.amount_paid = data.get('total', order.amount_paid)
+        status = data.get('status', 'pending')
+        if status.lower() in ['shipped', 'delivered']:
+            order.shipped = True
+            order.date_shipped = datetime.datetime.now()
+        else:
+            order.shipped = False
+            order.date_shipped = None
+        
+        # Handle products (with error handling for bad JSON)
+        try:
+            products_data = data.get('order_summary', '{}')
+            if isinstance(products_data, str):
+                products = json.loads(products_data).get('products', [])
+            else:
+                products = products_data.get('products', []) if isinstance(products_data, dict) else []
+            OrderItem.objects.filter(order=order).delete()
+            for product in products:
+                if isinstance(product, dict):  # Safety check
+                    OrderItem.objects.create(
+                        order=order,
+                        product_id=product.get('product_id'),
+                        quantity=product.get('quantity', 1),
+                        price=product.get('unit_price', 0.0)
+                    )
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            print(f"Error processing products: {e}")  # Log but don't fail the update
+        
+        try:
+            shipping_data = data.get('shipping_info', '{}')
+            if isinstance(shipping_data, str):
+                shipping_dict = json.loads(shipping_data)
+            else:
+                shipping_dict = shipping_data if isinstance(shipping_data, dict) else {}
+            # Optionally update shipping-related fields if your Order model has them
+        except (json.JSONDecodeError, TypeError) as e:
+            print(f"Error processing shipping info: {e}")  # Log but don't fail
+        
+        order.save()
+        return JsonResponse({'status': 'success', 'message': 'Order updated'})
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 @csrf_exempt
@@ -290,6 +356,13 @@ def delete_order(request, pk):
         try:
             order = Order.objects.get(id=pk)
             order.delete()
+            # Delete from Flask
+            try:
+                response = requests.delete(f'http://127.0.0.1:5000/orders/{pk}')
+                if response.status_code != 200:
+                    print(f"Failed to delete order in Flask: {response.status_code} - {response.text}")
+            except requests.exceptions.RequestException as e:
+                print(f"Failed to delete order in Flask: {e}")
             return JsonResponse({'status': 'success', 'message': 'Order deleted successfully'})
         except Order.DoesNotExist:
             return JsonResponse({'error': 'Order not found'}, status=404)
