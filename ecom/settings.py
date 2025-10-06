@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'payment',
     'whitenoise.runserver_nostatic',
     'paypal.standard.ipn',
+    'rest_framework',
+    'api',
 ]
 
 MIDDLEWARE = [
